@@ -1,0 +1,25 @@
+{
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "eps": 0.26,
+  "n_eliminated": 2,
+  "E_total": 0.35439636182321915,
+  "E_bound": 7.28,
+  "theorem_sat": true,
+  "ppl_original": 1.3139017820358276,
+  "ppl_aek": 1.3103561401367188,
+  "dppl_pct": -0.26985593197195346,
+  "lmeval_original": {
+    "label": "original",
+    "elapsed_min": 6.5,
+    "hellaswag": 68.32,
+    "arc_easy": 76.09,
+    "arc_challenge": 46.5
+  },
+  "lmeval_aek": {
+    "label": "aek",
+    "elapsed_min": 6.5,
+    "hellaswag": 68.02,
+    "arc_easy": 76.39,
+    "arc_challenge": 46.16
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "model": "Qwen/Qwen2.5-7B-Instruct",
+  "eps": 0.3,
+  "pressure_thresh": 0.7,
+  "quant_stats": {
+    "n_int8": 196,
+    "n_int4": 0,
+    "n_bf16": 143
+  },
+  "disk": {
+    "aek_bf16_gb": 15.231,
+    "hybrid_gb": 8.706,
+    "compression_x": 1.75
+  },
+  "ppl": {
+    "aek_bf16_quick": 1.2966290712356567,
+    "aek_bf16_sliding": 8.3463,
+    "hybrid_naive_int8_sliding": 8.7853,
+    "hybrid_llm_int8_sliding": 8.3934,
+    "dppl_naive_vs_sliding_pct": 5.26,
+    "dppl_llm_int8_vs_sliding_pct": 0.57,
+    "note": "Reference is sliding PPL (8.3463), not quick PPL. naive_int8 +5.3%, LLM.int8() +0.57%."
+  },
+  "lmeval": {
+    "original": {
+      "hellaswag": 80.44,
+      "arc_easy": 81.06,
+      "arc_challenge": 55.29
+    },
+    "hybrid": "skipped"
+  }
+}

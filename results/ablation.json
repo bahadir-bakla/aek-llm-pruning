@@ -1,0 +1,56 @@
+{
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "eps": 0.2,
+  "results": [
+    {
+      "config": "A",
+      "label": "Kalman + full SVD",
+      "n_eliminated": 3,
+      "E_total": 0.37051671793815893,
+      "elapsed_s": 78.96135711669922,
+      "ppl_baseline": 1.3711509704589844,
+      "ppl_compressed": 1.359598159790039,
+      "ppl_delta_pct": -0.8425629939989817
+    },
+    {
+      "config": "B",
+      "label": "Kalman + rand SVD",
+      "n_eliminated": 0,
+      "E_total": 0.0,
+      "elapsed_s": 54.99672985076904,
+      "ppl_baseline": 1.3711509704589844,
+      "ppl_compressed": 1.3711509704589844,
+      "ppl_delta_pct": 0.0
+    },
+    {
+      "config": "C",
+      "label": "Kalman + rand SVD + Laplace + α(n)",
+      "n_eliminated": 1,
+      "E_total": 0.08102280699704688,
+      "elapsed_s": 903.2870438098907,
+      "ppl_baseline": 1.3711509704589844,
+      "ppl_compressed": 1.3594101667404175,
+      "ppl_delta_pct": -0.8562735957978962
+    },
+    {
+      "config": "D",
+      "label": "Kalman + rand SVD + Fisher P₀",
+      "n_eliminated": 0,
+      "E_total": 0.0,
+      "elapsed_s": 61.49677896499634,
+      "ppl_baseline": 1.3711509704589844,
+      "ppl_compressed": 1.3711509704589844,
+      "ppl_delta_pct": 0.0
+    },
+    {
+      "config": "E",
+      "label": "Tam sistem (rand SVD + Laplace + α(n) + Fisher P₀)",
+      "n_eliminated": 10,
+      "E_total": 1.6645403104211474,
+      "elapsed_s": 975.4068899154663,
+      "ppl_baseline": 1.3711509704589844,
+      "ppl_compressed": 1.3372348546981812,
+      "ppl_delta_pct": -2.473550797214548
+    }
+  ]
+}

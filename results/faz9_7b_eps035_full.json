@@ -1,0 +1,40 @@
+{
+  "model": "Qwen/Qwen2.5-7B-Instruct",
+  "eps": 0.35,
+  "compress": {
+    "n_eliminated": 3,
+    "E_total": 0.7929220547500461,
+    "E_bound": 9.799999999999999,
+    "theorem_sat": true,
+    "ppl_quick_orig": 1.2979025840759277,
+    "ppl_quick_aek": 1.300569772720337,
+    "dppl_quick_pct": 0.2054999101730079,
+    "elim_by_type": {
+      "gate_proj": 1,
+      "up_proj": 2
+    }
+  },
+  "ppl_sliding": {
+    "original": 8.3434,
+    "aek": 8.3747,
+    "delta_pct": 0.3752
+  },
+  "disk": {
+    "aek_bf16_gb": 15.231,
+    "aek_int8_gb": null
+  },
+  "lmeval": {
+    "original": {
+      "hellaswag": 80.44,
+      "arc_easy": 81.06,
+      "arc_challenge": 55.29
+    },
+    "aek": {
+      "label": "aek",
+      "elapsed_min": 22.9,
+      "hellaswag": 80.36,
+      "arc_easy": 81.44,
+      "arc_challenge": 55.8
+    }
+  }
+}

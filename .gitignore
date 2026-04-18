@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pem
+*.env
+.aws_*
+models/
+logs/
+checkpoints/
+venv*/
+*.egg-info/
+.DS_Store
+*.log
