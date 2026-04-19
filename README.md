@@ -12,7 +12,17 @@ AEK is a novel LLM pruning algorithm that combines **Laplace pole analysis**, **
 
 ## Key Results
 
-### Pruning (AEK) — PPL and Benchmark Preservation
+### AEK v0.2 — Large Model Extension (Recommended)
+
+| Model | ε | Eliminations | Elim Types | PPL Δ | Theorem |
+|-------|---|:---:|---|:---:|:---:|
+| Qwen2.5-7B | 0.35 | **7** | gate_proj (3) + up_proj (4) | **+0.36%** | ✓ |
+
+> v0.2 introduces K dampening (`α = 1/log₂(hidden_dim/256)`) and layer-specific γ normalization,  
+> increasing 7B eliminations from 3 → 7 (+133%) while maintaining the Main Theorem guarantee.  
+> See [MATH_FOUNDATION_V2.md](MATH_FOUNDATION_V2.md) for the theoretical derivation.
+
+### AEK v0.1 — Baseline Results
 
 | Model | ε | Eliminations | PPL Δ | HellaSwag Δ | ARC-Easy Δ | ARC-Challenge Δ |
 |-------|---|:---:|:---:|:---:|:---:|:---:|
@@ -106,13 +116,24 @@ python src/hybrid_aek.py \
     --pressure_thresh 0.7
 ```
 
+### AEK v0.2 — 7B with large model extension
+
+```bash
+python src/evaluate_7b_v2.py \
+    --model Qwen/Qwen2.5-7B-Instruct \
+    --eps 0.35 \
+    --gamma_mode spectral \
+    --output results/aek_v2_7b_eps035.json
+```
+
 ### Key parameters
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `--eps` | Elimination tolerance ε | 0.20 |
-| `--delta` | Kalman stability margin | 0.10 |
-| `--fisher_samples` | Samples for Fisher P₀ init | 4 |
+| `--gamma_mode` | γ mode: `spectral` (v0.2) or `fixed` (v0.1) | spectral |
+| `--k_alpha_override` | Manual K dampening factor (auto if not set) | None |
+| `--fisher_samples` | Samples for Fisher P₀ init | adaptive |
 | `--dtype` | Model dtype (bfloat16/float32) | bfloat16 |
 
 ---
@@ -122,11 +143,13 @@ python src/hybrid_aek.py \
 ```
 aek-llm-pruning/
 ├── src/
-│   ├── compress_utils.py      # Core AEK algorithm (Kalman, SVD, Laplace, Union-Find)
+│   ├── compress_utils.py      # Core AEK v0.1 (Kalman, SVD, Laplace, Union-Find)
+│   ├── compress_utils_v2.py   # AEK v0.2 (K dampening, spectral γ, adaptive Fisher)
 │   ├── compress.py            # Main compression pipeline
 │   ├── evaluate_0b5.py        # 0.5B full eval (compress + PPL + lm-eval)
 │   ├── evaluate_1b5.py        # 1.5B full eval
-│   ├── evaluate_7b.py         # 7B full eval
+│   ├── evaluate_7b.py         # 7B full eval (v0.1)
+│   ├── evaluate_7b_v2.py      # 7B full eval (v0.2 — recommended for large models)
 │   └── hybrid_aek.py          # Hybrid AEK (pressure-guided INT8/INT4)
 ├── experiments/
 │   ├── ablation.py            # 5-config ablation study
@@ -134,13 +157,15 @@ aek-llm-pruning/
 │   ├── fisher_analysis.py     # Fisher P₀ sensitivity
 │   └── laplace_analysis.py    # Laplace pole distribution
 ├── results/
-│   ├── faz9_0b5_full.json         # 0.5B final results
-│   ├── faz9_1b5_eps026_full.json  # 1.5B final results
-│   ├── faz9_7b_eps035_full.json   # 7B final results
+│   ├── faz9_0b5_full.json         # 0.5B v0.1 results
+│   ├── faz9_1b5_eps026_full.json  # 1.5B v0.1 results
+│   ├── faz9_7b_eps035_full.json   # 7B v0.1 results
 │   ├── faz9_7b_hybrid_eps03_full.json  # 7B Hybrid AEK results
+│   ├── aek_v2_7b_eps035.json      # 7B v0.2 results (7 elim, PPL +0.36%)
 │   ├── ablation.json              # Ablation study results
 │   └── paper_tables.md            # All results in table format
-├── MATH_FOUNDATION.md         # Full theoretical derivation
+├── MATH_FOUNDATION.md         # v0.1 theoretical derivation
+├── MATH_FOUNDATION_V2.md      # v0.2 extension: K dampening + spectral γ
 ├── requirements.txt
 └── README.md
 ```
@@ -165,9 +190,9 @@ The **Shadow Riccati** forward pass is the novel contribution: it computes per-l
 
 ## Limitations and Future Work
 
-- **Large models (7B+):** Spectral density increases with model size, reducing elimination count. Hybrid AEK (quantization-guided by Kalman pressure) is recommended for 7B+.
-- **Disk compression:** AEK pruning removes individual singular values, not full weight matrices — disk savings require combining with quantization (Hybrid AEK).
-- **Planned (v0.2):** Layer-specific γ normalization, adaptive Fisher sampling scaled by hidden_dim, block-wise Kalman decisions.
+- **Disk compression:** AEK pruning removes individual singular values, not full weight matrices — disk savings require combining with quantization (Hybrid AEK) or low-rank factorization (v0.3, planned).
+- **lm-eval on 7B:** Running lm-eval on g5.xlarge requires careful GPU memory management (save → del → eval pattern). PPL is the primary metric for large model evaluation.
+- **Planned (v0.3):** Low-rank factorization W = U·S·Vᵀ — real disk compression (target: 15GB → <5GB for 7B) with theoretical error bound from Eckart-Young theorem.
 
 ---
 

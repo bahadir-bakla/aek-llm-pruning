@@ -1,0 +1,27 @@
+{
+  "version": "v0.2",
+  "model": "Qwen/Qwen2.5-7B-Instruct",
+  "eps": 0.35,
+  "gamma_mode": "spectral",
+  "k_alpha": 0.26264953503719357,
+  "compress": {
+    "n_eliminated": 7,
+    "E_total": 2.0984403748704477,
+    "E_bound": 68.6,
+    "theorem_sat": true,
+    "elim_by_type": {
+      "gate_proj": 3,
+      "up_proj": 4
+    },
+    "compress_time_s": 6380.706248044968
+  },
+  "ppl_sliding": {
+    "original": 7.482433630085974,
+    "aek": 7.509621422954902,
+    "delta_pct": 0.3634
+  },
+  "lmeval": {
+    "original": {},
+    "aek": {}
+  }
+}
