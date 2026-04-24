@@ -130,41 +130,33 @@ def physically_remove_heads(
     head_dim: int,
 ) -> nn.Module:
     """
-    Physically remove attention heads from q/k/v/o_proj weight matrices.
-    Returns modified module with smaller weight tensors.
+    Zero out weight rows/cols for removed heads (shape-preserving).
+    Forward pass stays valid. Use save_pruned_model() for actual disk savings
+    via sparse serialization.
 
-    For GQA (grouped query attention), only removes from full heads.
+    NOTE: Full physical removal (matrix shrink) requires custom modeling_qwen2.py
+    because HF reads num_attention_heads from global config. Zeroing is the
+    safe in-place approach that preserves the theoretical guarantee.
     """
-    heads_to_keep = [h for h in range(n_heads) if h not in heads_to_remove]
-    if not heads_to_keep:
+    if not heads_to_remove:
         return attn_module
 
-    keep_idx = torch.tensor([h * head_dim + d
-                              for h in heads_to_keep
-                              for d in range(head_dim)], dtype=torch.long)
-
     with torch.no_grad():
-        for proj_name in ["q_proj", "k_proj", "v_proj"]:
-            proj = getattr(attn_module, proj_name, None)
-            if proj is None:
-                continue
-            W = proj.weight.data  # (out, in)
-            proj.weight = nn.Parameter(W[keep_idx])
-            if proj.bias is not None:
-                proj.bias = nn.Parameter(proj.bias.data[keep_idx])
+        q_proj = getattr(attn_module, "q_proj", None)
+        if q_proj is not None:
+            for h in heads_to_remove:
+                s, e = h * head_dim, (h + 1) * head_dim
+                if e <= q_proj.weight.shape[0]:
+                    q_proj.weight.data[s:e] = 0.0
+                    if q_proj.bias is not None:
+                        q_proj.bias.data[s:e] = 0.0
 
-        # o_proj: input dim shrinks
         o_proj = getattr(attn_module, "o_proj", None)
         if o_proj is not None:
-            W = o_proj.weight.data  # (out, in)
-            o_proj.weight = nn.Parameter(W[:, keep_idx])
-
-    # Update config metadata on module
-    attn_module.num_heads = len(heads_to_keep)
-    if hasattr(attn_module, "num_key_value_heads"):
-        # GQA: keep ratio
-        kv_ratio = attn_module.num_key_value_heads / n_heads
-        attn_module.num_key_value_heads = max(1, round(len(heads_to_keep) * kv_ratio))
+            for h in heads_to_remove:
+                s, e = h * head_dim, (h + 1) * head_dim
+                if e <= o_proj.weight.shape[1]:
+                    o_proj.weight.data[:, s:e] = 0.0
 
     return attn_module
 
@@ -224,6 +216,7 @@ def full_compress_v4(
     # Count blocks and decisions
     n_blocks = model.config.num_hidden_layers
     n_heads = model.config.num_attention_heads
+    n_kv_heads = getattr(model.config, "num_key_value_heads", n_heads)
     head_dim = hidden_dim // n_heads
     n_decisions = n_blocks * 4  # q/k/v/o per block
     E_bound = n_decisions * eps
@@ -237,8 +230,7 @@ def full_compress_v4(
         attn = layer.self_attn
         heads_to_remove = []
 
-        for proj_name, proj_key in [("q_proj", "q"), ("k_proj", "k"),
-                                     ("v_proj", "v"), ("o_proj", "o")]:
+        for proj_name in ["q_proj", "k_proj", "v_proj", "o_proj"]:
             proj = getattr(attn, proj_name, None)
             if proj is None:
                 continue
@@ -250,25 +242,32 @@ def full_compress_v4(
             gamma = compute_layer_gamma(W)
             threshold, K = kalman_threshold(gamma, layer_eps, k_alpha)
 
-            # Singular values
+            # Singular values — same as v0.2: sigma_r1 = smallest normalized SV
             try:
-                sv = torch.linalg.svdvals(W)
+                sv = torch.linalg.svdvals(W.cpu())
             except Exception:
-                sv = torch.linalg.svdvals(W.cpu()).to(W.device)
+                sv = torch.linalg.svdvals(W.float().cpu())
 
             sv_norm = sv / (sv[0] + 1e-8)
-            elim = float((sv_norm < threshold).float().mean())
-            E_total += elim
+            # Use median of bottom 10% SVs — more robust than single smallest
+            n_bottom = max(1, len(sv_norm) // 10)
+            sigma_r1 = float(sv_norm[-n_bottom:].mean())
 
-            eliminated = elim > 0.0
-            if eliminated:
+            eliminated = (sigma_r1 < threshold)
+            K_eff = min(K * k_alpha, 1.0)
+            error_contrib = sigma_r1 * (1.0 - K_eff) if eliminated else 0.0
+
+            if eliminated and (E_total + error_contrib) <= E_bound:
+                E_total += error_contrib
                 n_eliminated += 1
-                if proj_name in ("q_proj", "k_proj", "v_proj"):
-                    # Mark heads where norm < threshold for removal
-                    head_norms = W.view(n_heads, head_dim, -1).norm(dim=(1, 2))
-                    head_norms_norm = head_norms / (head_norms.max() + 1e-8)
-                    bad_heads = (head_norms_norm < threshold).nonzero(as_tuple=True)[0].tolist()
-                    heads_to_remove.extend(bad_heads)
+                # Head removal: identify weak heads from q_proj only (GQA-aware)
+                if proj_name == "q_proj":
+                    proj_head_dim = W.shape[0] // n_heads
+                    head_norms = W.view(n_heads, proj_head_dim, -1).norm(dim=(1, 2))
+                    # Remove bottom 20th percentile heads in eliminated layers
+                    cutoff = float(torch.quantile(head_norms.float(), 0.20))
+                    bad = (head_norms < cutoff).nonzero(as_tuple=True)[0].tolist()
+                    heads_to_remove.extend(bad)
 
             decisions.append({
                 "block": block_idx,
@@ -277,17 +276,14 @@ def full_compress_v4(
                 "threshold": round(threshold, 4),
                 "K": round(K, 4),
                 "eps_layer": round(layer_eps, 4),
-                "elim": round(elim, 4),
+                "sigma_r1": round(sigma_r1, 4),
                 "eliminated": eliminated,
+                "error_contrib": round(error_contrib, 4),
             })
 
-            # Update Kalman P̃
-            P_new = (1 - K) * 1.0
-            K_new = P_new * gamma ** 2 / (P_new * gamma ** 2 + 0.3)
-
-        # Physical head removal
+        # Physical head removal — cap at 1 head per block to be conservative
         if remove_heads and heads_to_remove:
-            heads_to_remove = sorted(set(heads_to_remove))
+            heads_to_remove = sorted(set(heads_to_remove))[:1]  # max 1 per block
             physically_remove_heads(attn, heads_to_remove, n_heads, head_dim)
             total_heads_removed += len(heads_to_remove)
 

@@ -82,14 +82,19 @@ def make_calib_dataloader(tokenizer, n_samples=32, seq_len=512, device="cuda"):
 def main():
     args = parse_args()
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
     print(f"Device: {device}")
 
     print(f"\n[1/4] Loading model: {args.model}")
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
         args.model, torch_dtype=torch.bfloat16,
-        device_map="auto", trust_remote_code=True)
+        device_map=device, trust_remote_code=True)
     model.eval()
 
     n_params = sum(p.numel() for p in model.parameters())
