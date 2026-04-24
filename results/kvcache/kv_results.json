@@ -1,0 +1,44 @@
+{
+  "version": "aek_kv_v1",
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "budget": 400,
+  "eps": 0.1,
+  "keep_recent": 32,
+  "ppl_full": 19.529898067046847,
+  "ppl_budget": 21.17908999132589,
+  "ppl_delta_pct": 8.4444,
+  "eviction_sim": [
+    {
+      "seq_len": 256,
+      "n_layers_active": 4,
+      "total_cached_tokens": 1024,
+      "n_evictions": 0,
+      "E_total": 0.0,
+      "theorem_satisfied": true
+    },
+    {
+      "seq_len": 512,
+      "n_layers_active": 4,
+      "total_cached_tokens": 1600,
+      "n_evictions": 448,
+      "E_total": 0.0,
+      "theorem_satisfied": true
+    },
+    {
+      "seq_len": 1024,
+      "n_layers_active": 4,
+      "total_cached_tokens": 1600,
+      "n_evictions": 2496,
+      "E_total": 0.0,
+      "theorem_satisfied": true
+    },
+    {
+      "seq_len": 2048,
+      "n_layers_active": 4,
+      "total_cached_tokens": 1600,
+      "n_evictions": 6592,
+      "E_total": 0.0,
+      "theorem_satisfied": true
+    }
+  ]
+}
